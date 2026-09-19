@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#102a43">
+  <title>Semester Taskboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand-lockup">
+        <div class="brand-mark" aria-hidden="true">6</div>
+        <div>
+          <p class="eyebrow">Personal study board</p>
+          <h1>Semester taskboard</h1>
+        </div>
+      </div>
+      <button class="reset-button" id="resetButton" type="button">Reset progress</button>
+    </header>
+
+    <section class="intro" aria-labelledby="pageTitle">
+      <div>
+        <p class="eyebrow accent-label">Keep the semester moving</p>
+        <h2 id="pageTitle">A small click for every finished thing.</h2>
+        <p class="intro-copy">Track each subject's deliverables in one glance. Click a cell to complete the next item in that category.</p>
+      </div>
+      <div class="overall-progress" aria-live="polite">
+        <div class="progress-heading"><span>Overall progress</span><strong id="overallPercent">0%</strong></div>
+        <div class="progress-track"><span id="overallBar"></span></div>
+        <p id="overallLabel">0 of 0 items complete</p>
+      </div>
+    </section>
+
+    <section class="summary-strip" aria-label="Progress summary">
+      <div class="summary-item"><span class="summary-dot dot-blue"></span><div><strong id="subjectCount">6</strong><span>subjects</span></div></div>
+      <div class="summary-item"><span class="summary-dot dot-coral"></span><div><strong id="doneCount">0</strong><span>items done</span></div></div>
+      <div class="summary-item"><span class="summary-dot dot-lime"></span><div><strong id="remainingCount">0</strong><span>to go</span></div></div>
+      <div class="summary-note">Xerox counts follow your written content columns.</div>
+    </section>
+
+    <section class="tracker-panel" aria-labelledby="trackerTitle">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">The grid</p>
+          <h2 id="trackerTitle">Deliverables by subject</h2>
+        </div>
+        <div class="legend"><span class="legend-swatch complete-swatch"></span>Complete <span class="legend-swatch current-swatch"></span>In progress</div>
+      </div>
+      <div class="table-wrap">
+        <table class="task-table">
+          <caption class="sr-only">Task completion tracker for six subjects</caption>
+          <thead>
+            <tr>
+              <th scope="col" class="subject-header">Subject</th>
+              <th scope="col">Assignment</th>
+              <th scope="col">PPT</th>
+              <th scope="col">Report</th>
+              <th scope="col">PBL</th>
+              <th scope="col">Practical</th>
+              <th scope="col" class="xerox-header">Xerox <span class="header-note">derived</span></th>
+            </tr>
+          </thead>
+          <tbody id="taskRows"></tbody>
+        </table>
+      </div>
+      <div class="table-footnote"><span class="footnote-mark">i</span> Xerox includes Assignment, PPT, Report, and PBL content only.</div>
+    </section>
+
+    <footer class="page-footer">
+      <span>Progress saves automatically in this browser.</span>
+      <span id="lastUpdated">Ready to begin</span>
+    </footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
