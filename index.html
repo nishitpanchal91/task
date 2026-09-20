@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=3.2">
 </head>
 <body>
   <main class="app-shell">
@@ -65,7 +65,7 @@
           <span id="xeroxDoneSubtext">xerox prints done (click to view)</span>
         </div>
       </div>
-      <div class="summary-note">Xerox column organizes all practicals, assignments, PBL &amp; reports section-wise.</div>
+      <div class="summary-note">Xerox column organizes all assignments, practicals, PBL, PPT &amp; reports section-wise.</div>
     </section>
 
     <section class="tracker-panel" aria-labelledby="trackerTitle">
@@ -99,7 +99,7 @@
               <th scope="col">Report</th>
               <th scope="col">PBL</th>
               <th scope="col">Practical</th>
-              <th scope="col" class="xerox-header">Xerox <span class="header-note">all copies</span></th>
+              <th scope="col" class="xerox-header">Xerox <span class="header-note">section-wise</span></th>
             </tr>
           </thead>
           <tbody id="taskRows"></tbody>
@@ -107,7 +107,7 @@
       </div>
       <div class="table-footnote">
         <span class="footnote-mark">i</span> 
-        <span><strong>Tip:</strong> Click any cell to open its itemized checklist. For <strong>Xerox</strong>, open any subject cell or the <strong>Master Xerox Hub</strong> to see everything section-wise with what is done and what is left to print!</span>
+        <span><strong>Tip:</strong> Click any cell to open its checklist. Clicking a <strong>Xerox</strong> cell shows section-wise breakdown (Assignments, Practicals, PBL, PPT, Reports) with what is done and what is left to Xerox.</span>
       </div>
     </section>
 
@@ -152,9 +152,9 @@
         <!-- Xerox Specific Filter Tabs (What is Done vs What is Left to Xerox) -->
         <div class="modal-xerox-filters" id="modalXeroxFilters" style="display: none;">
           <div class="xerox-filter-tabs">
-            <button type="button" class="xerox-tab-btn active" data-xerox-filter="all">All Prints (<span id="xeroxFilterAllCount">0</span>)</button>
+            <button type="button" class="xerox-tab-btn active" data-xerox-filter="all">All Copies (<span id="xeroxFilterAllCount">0</span>)</button>
             <button type="button" class="xerox-tab-btn tab-pending" data-xerox-filter="pending">⏳ Left to Xerox (<span id="xeroxFilterPendingCount">0</span>)</button>
-            <button type="button" class="xerox-tab-btn tab-done" data-xerox-filter="done">✓ Printed (<span id="xeroxFilterDoneCount">0</span>)</button>
+            <button type="button" class="xerox-tab-btn tab-done" data-xerox-filter="done">✓ Done / Copied (<span id="xeroxFilterDoneCount">0</span>)</button>
           </div>
         </div>
 
@@ -179,6 +179,6 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=3.2"></script>
 </body>
 </html>
