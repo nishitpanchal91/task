@@ -698,7 +698,12 @@ function openTaskModal(subjectIndex, column) {
     b.classList.toggle('active', b.dataset.xeroxFilter === 'all');
   });
 
-  renderModalChecklist();
+  const modalCard = document.querySelector('.modal-card');
+  const modalBody = document.querySelector('.modal-body');
+  if (modalCard) modalCard.scrollTop = 0;
+  if (modalBody) modalBody.scrollTop = 0;
+
+  renderModalChecklist(false);
 
   if (modal) {
     modal.classList.add('is-open');
@@ -709,6 +714,8 @@ function openTaskModal(subjectIndex, column) {
 
 function closeTaskModal() {
   const modal = document.querySelector('#taskModal');
+  const modalCard = document.querySelector('.modal-card');
+  if (modalCard) modalCard.scrollTop = 0;
   if (modal) {
     modal.classList.remove('is-open');
     modal.setAttribute('aria-hidden', 'true');
@@ -725,34 +732,19 @@ function getModalItems() {
   return getItems(subjects[subjectIndex], column);
 }
 
-function renderModalChecklist() {
+function renderModalChecklist(preserveScroll = true) {
   const { subjectIndex, column } = currentModalContext;
   const items = getModalItems();
   const checklistContainer = document.querySelector('#modalChecklist');
-  const countEl = document.querySelector('#modalProgressCount');
-  const percentEl = document.querySelector('#modalProgressPercent');
-  const fillEl = document.querySelector('#modalProgressFill');
+  const modalBody = document.querySelector('.modal-body');
+  const modalCard = document.querySelector('.modal-card');
 
   if (!checklistContainer) return;
 
-  const total = items.length;
-  const completed = items.filter((item) => checkedTaskIds.has(item.id)).length;
-  const pending = total - completed;
-  const percent = total ? Math.round((completed / total) * 100) : 0;
+  const savedScroll = (preserveScroll && modalBody) ? modalBody.scrollTop : 0;
+  if (modalCard) modalCard.scrollTop = 0;
 
-  if (countEl) countEl.textContent = `${completed} of ${total} completed (${pending} left to do)`;
-  if (percentEl) percentEl.textContent = `${percent}%`;
-  if (fillEl) fillEl.style.width = `${percent}%`;
-
-  // Update Xerox filter badge counts
-  if (column === 'xerox' || column === 'all-xerox') {
-    const allCountEl = document.querySelector('#xeroxFilterAllCount');
-    const pendingCountEl = document.querySelector('#xeroxFilterPendingCount');
-    const doneCountEl = document.querySelector('#xeroxFilterDoneCount');
-    if (allCountEl) allCountEl.textContent = total;
-    if (pendingCountEl) pendingCountEl.textContent = pending;
-    if (doneCountEl) doneCountEl.textContent = completed;
-  }
+  updateModalProgressStats();
 
   // Route rendering based on column type
   if (column === 'xerox') {
@@ -764,6 +756,37 @@ function renderModalChecklist() {
   }
 
   attachModalCheckboxListeners(checklistContainer);
+
+  if (modalBody && preserveScroll) {
+    modalBody.scrollTop = savedScroll;
+  }
+  if (modalCard) modalCard.scrollTop = 0;
+}
+
+function updateModalProgressStats() {
+  const { column } = currentModalContext;
+  const items = getModalItems();
+  const countEl = document.querySelector('#modalProgressCount');
+  const percentEl = document.querySelector('#modalProgressPercent');
+  const fillEl = document.querySelector('#modalProgressFill');
+
+  const total = items.length;
+  const completed = items.filter((item) => checkedTaskIds.has(item.id)).length;
+  const pending = total - completed;
+  const percent = total ? Math.round((completed / total) * 100) : 0;
+
+  if (countEl) countEl.textContent = `${completed} of ${total} completed (${pending} left to do)`;
+  if (percentEl) percentEl.textContent = `${percent}%`;
+  if (fillEl) fillEl.style.width = `${percent}%`;
+
+  if (column === 'xerox' || column === 'all-xerox') {
+    const allCountEl = document.querySelector('#xeroxFilterAllCount');
+    const pendingCountEl = document.querySelector('#xeroxFilterPendingCount');
+    const doneCountEl = document.querySelector('#xeroxFilterDoneCount');
+    if (allCountEl) allCountEl.textContent = total;
+    if (pendingCountEl) pendingCountEl.textContent = pending;
+    if (doneCountEl) doneCountEl.textContent = completed;
+  }
 }
 
 /**
@@ -967,20 +990,42 @@ function attachModalCheckboxListeners(container) {
   container.querySelectorAll('input[type="checkbox"]').forEach((input) => {
     input.addEventListener('change', (e) => {
       const taskId = e.target.dataset.id;
-      if (e.target.checked) {
+      const isChecked = e.target.checked;
+      if (isChecked) {
         checkedTaskIds.add(taskId);
       } else {
         checkedTaskIds.delete(taskId);
       }
       saveProgress();
-      renderModalChecklist();
+
+      // In-place UI update for smooth, jump-free experience
+      const label = input.closest('.checklist-item');
+      if (label) {
+        label.classList.toggle('is-checked', isChecked);
+        if (label.classList.contains('xerox-item-row')) {
+          label.classList.toggle('is-printed', isChecked);
+          label.classList.toggle('is-pending-print', !isChecked);
+          const statusPill = label.querySelector('.xerox-status-pill');
+          if (statusPill) {
+            statusPill.className = `xerox-status-pill ${isChecked ? 'pill-printed' : 'pill-left'}`;
+            statusPill.textContent = isChecked ? '✓ Copied / Xerox Done' : '⏳ Left to Xerox';
+          }
+        }
+      }
+
+      // Update progress stats and refresh background table
+      updateModalProgressStats();
       renderGrid();
+
+      // Ensure modal card itself stays pinned with scrollTop = 0
+      const modalCard = document.querySelector('.modal-card');
+      if (modalCard) modalCard.scrollTop = 0;
     });
   });
 }
 
 /**
- * Attach section-level toggle listeners (e.g. Copy all in Assignments)
+ * Attach section-level toggle listeners (e.g. Copy all in PBL)
  */
 function attachSectionToggleListeners() {
   document.querySelectorAll('.btn-section-toggle').forEach((btn) => {
@@ -999,7 +1044,7 @@ function attachSectionToggleListeners() {
       }
 
       saveProgress();
-      renderModalChecklist();
+      renderModalChecklist(true);
       renderGrid();
     });
   });
@@ -1035,6 +1080,14 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// Modal card internal scroll prevention
+const modalCardEl = document.querySelector('.modal-card');
+if (modalCardEl) {
+  modalCardEl.addEventListener('scroll', () => {
+    if (modalCardEl.scrollTop !== 0) modalCardEl.scrollTop = 0;
+  });
+}
+
 // Modal Mark All Done
 const modalCheckAllBtn = document.querySelector('#modalCheckAllBtn');
 if (modalCheckAllBtn) {
@@ -1042,7 +1095,7 @@ if (modalCheckAllBtn) {
     const items = getModalItems();
     items.forEach((item) => checkedTaskIds.add(item.id));
     saveProgress();
-    renderModalChecklist();
+    renderModalChecklist(true);
     renderGrid();
   });
 }
@@ -1054,7 +1107,7 @@ if (modalClearAllBtn) {
     const items = getModalItems();
     items.forEach((item) => checkedTaskIds.delete(item.id));
     saveProgress();
-    renderModalChecklist();
+    renderModalChecklist(true);
     renderGrid();
   });
 }
@@ -1065,7 +1118,7 @@ document.querySelectorAll('.xerox-tab-btn').forEach((btn) => {
     document.querySelectorAll('.xerox-tab-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     xeroxModalFilter = btn.dataset.xeroxFilter;
-    renderModalChecklist();
+    renderModalChecklist(false);
   });
 });
 
