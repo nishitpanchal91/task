@@ -7,7 +7,7 @@
   <title>Semester Taskboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -20,27 +20,48 @@
           <h1>Semester taskboard</h1>
         </div>
       </div>
-      <button class="reset-button" id="resetButton" type="button">Reset progress</button>
+      <div class="topbar-actions">
+        <button class="action-btn" id="exportBtn" type="button" title="Download backup of your progress">Export Data</button>
+        <button class="action-btn" id="importBtn" type="button" title="Restore progress from JSON">Import Data</button>
+        <input type="file" id="importFileInput" accept=".json" style="display: none;">
+        <button class="reset-button" id="resetButton" type="button">Reset progress</button>
+      </div>
     </header>
 
     <section class="intro" aria-labelledby="pageTitle">
       <div>
         <p class="eyebrow accent-label">Keep the semester moving</p>
         <h2 id="pageTitle">A small click for every finished thing.</h2>
-        <p class="intro-copy">Track each subject's deliverables in one glance. Click a cell to complete the next item in that category.</p>
+        <p class="intro-copy">Track every deliverable, practical experiment, and PBL milestone in one glance. Click any cell to open its checklist, or use the quick-complete button to mark everything at once.</p>
       </div>
       <div class="overall-progress" aria-live="polite">
-        <div class="progress-heading"><span>Overall progress</span><strong id="overallPercent">0%</strong></div>
+        <div class="progress-heading">
+          <span>Overall Coursework Progress</span>
+          <strong id="overallPercent">0%</strong>
+        </div>
         <div class="progress-track"><span id="overallBar"></span></div>
         <p id="overallLabel">0 of 0 items complete</p>
       </div>
     </section>
 
     <section class="summary-strip" aria-label="Progress summary">
-      <div class="summary-item"><span class="summary-dot dot-blue"></span><div><strong id="subjectCount">6</strong><span>subjects</span></div></div>
-      <div class="summary-item"><span class="summary-dot dot-coral"></span><div><strong id="doneCount">0</strong><span>items done</span></div></div>
-      <div class="summary-item"><span class="summary-dot dot-lime"></span><div><strong id="remainingCount">0</strong><span>to go</span></div></div>
-      <div class="summary-note">Xerox counts follow your written content columns.</div>
+      <div class="summary-item">
+        <span class="summary-dot dot-blue"></span>
+        <div><strong id="subjectCount">6</strong><span>subjects</span></div>
+      </div>
+      <div class="summary-item">
+        <span class="summary-dot dot-coral"></span>
+        <div><strong id="doneCount">0</strong><span>items done</span></div>
+      </div>
+      <div class="summary-item">
+        <span class="summary-dot dot-lime"></span>
+        <div><strong id="remainingCount">0</strong><span>to go</span></div>
+      </div>
+      <div class="summary-item summary-item-xerox">
+        <span class="summary-dot dot-yellow"></span>
+        <div><strong id="xeroxDoneCount">0</strong><span>xerox / prints done</span></div>
+      </div>
+      <div class="summary-note">Click any cell to open its full itemized checklist &amp; deadlines.</div>
     </section>
 
     <section class="tracker-panel" aria-labelledby="trackerTitle">
@@ -49,11 +70,23 @@
           <p class="eyebrow">The grid</p>
           <h2 id="trackerTitle">Deliverables by subject</h2>
         </div>
-        <div class="legend"><span class="legend-swatch complete-swatch"></span>Complete <span class="legend-swatch current-swatch"></span>In progress</div>
+        <div class="panel-controls">
+          <div class="filter-group" role="tablist" aria-label="Filter subjects">
+            <button class="filter-btn active" data-filter="all" type="button" role="tab" aria-selected="true">All Subjects</button>
+            <button class="filter-btn" data-filter="pending" type="button" role="tab" aria-selected="false">Pending</button>
+            <button class="filter-btn" data-filter="complete" type="button" role="tab" aria-selected="false">Complete</button>
+          </div>
+          <div class="legend">
+            <span class="legend-swatch complete-swatch"></span>Complete 
+            <span class="legend-swatch current-swatch"></span>In progress
+            <span class="legend-swatch empty-swatch"></span>Not started
+          </div>
+        </div>
       </div>
+
       <div class="table-wrap">
         <table class="task-table">
-          <caption class="sr-only">Task completion tracker for six subjects</caption>
+          <caption class="sr-only">Deliverables checklist and progress tracker for semester subjects</caption>
           <thead>
             <tr>
               <th scope="col" class="subject-header">Subject</th>
@@ -62,13 +95,16 @@
               <th scope="col">Report</th>
               <th scope="col">PBL</th>
               <th scope="col">Practical</th>
-              <th scope="col" class="xerox-header">Xerox <span class="header-note">derived</span></th>
+              <th scope="col" class="xerox-header">Xerox <span class="header-note">print copies</span></th>
             </tr>
           </thead>
           <tbody id="taskRows"></tbody>
         </table>
       </div>
-      <div class="table-footnote"><span class="footnote-mark">i</span> Xerox includes Assignment, PPT, Report, and PBL content only.</div>
+      <div class="table-footnote">
+        <span class="footnote-mark">i</span> 
+        <span><strong>Tip:</strong> Click any active cell to open its checklist and toggle individual tasks. Click the checkmark <span class="footnote-icon">✓</span> inside the cell to mark all items done or clear them instantly.</span>
+      </div>
     </section>
 
     <footer class="page-footer">
@@ -76,6 +112,60 @@
       <span id="lastUpdated">Ready to begin</span>
     </footer>
   </main>
+
+  <!-- Task Detail & Checklist Modal -->
+  <div class="modal-backdrop" id="taskModal" role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1">
+    <div class="modal-card">
+      <header class="modal-header">
+        <div class="modal-title-lockup">
+          <span class="modal-subject-code" id="modalSubjectCode">CN</span>
+          <div>
+            <span class="modal-category" id="modalCategory">Practical</span>
+            <h3 class="modal-subject-name" id="modalSubjectName">Computer Networks</h3>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="modalCloseBtn" type="button" aria-label="Close dialog">&times;</button>
+      </header>
+
+      <div class="modal-body">
+        <!-- Optional Guidance & Deadlines banner -->
+        <div class="modal-guidelines" id="modalGuidelines" style="display: none;">
+          <div class="guidelines-badge" id="modalGuidelinesBadge">Guideline</div>
+          <p class="guidelines-text" id="modalGuidelinesText"></p>
+        </div>
+
+        <!-- Progress bar inside modal -->
+        <div class="modal-progress-bar-wrap">
+          <div class="modal-progress-stats">
+            <span id="modalProgressCount">0 of 10 completed</span>
+            <strong id="modalProgressPercent">0%</strong>
+          </div>
+          <div class="modal-progress-track">
+            <div class="modal-progress-fill" id="modalProgressFill"></div>
+          </div>
+        </div>
+
+        <!-- Itemized checklist -->
+        <div class="modal-checklist-container">
+          <div class="checklist-header">
+            <h4>Checklist Items</h4>
+            <div class="checklist-quick-actions">
+              <button type="button" class="btn-text" id="modalCheckAllBtn">Mark All Done</button>
+              <span class="btn-divider">&bull;</span>
+              <button type="button" class="btn-text" id="modalClearAllBtn">Clear All</button>
+            </div>
+          </div>
+          <div class="modal-checklist" id="modalChecklist"></div>
+        </div>
+      </div>
+
+      <footer class="modal-footer">
+        <span class="modal-footer-note">Changes are saved automatically</span>
+        <button type="button" class="modal-done-btn" id="modalDoneBtn">Done</button>
+      </footer>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
