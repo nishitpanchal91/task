@@ -21,6 +21,7 @@
         </div>
       </div>
       <div class="topbar-actions">
+        <button class="action-btn xerox-hub-btn" id="xeroxHubBtn" type="button" title="View Master Xerox &amp; Print checklist across all subjects">🖨️ Master Xerox Hub</button>
         <button class="action-btn" id="exportBtn" type="button" title="Download backup of your progress">Export Data</button>
         <button class="action-btn" id="importBtn" type="button" title="Restore progress from JSON">Import Data</button>
         <input type="file" id="importFileInput" accept=".json" style="display: none;">
@@ -32,7 +33,7 @@
       <div>
         <p class="eyebrow accent-label">Keep the semester moving</p>
         <h2 id="pageTitle">A small click for every finished thing.</h2>
-        <p class="intro-copy">Track every deliverable, practical experiment, and PBL milestone in one glance. Click any cell to open its checklist, or use the quick-complete button to mark everything at once.</p>
+        <p class="intro-copy">Track every deliverable, practical experiment, PBL milestone, and photocopy printout. Click any cell to open its checklist, or use the quick-complete button to mark everything at once.</p>
       </div>
       <div class="overall-progress" aria-live="polite">
         <div class="progress-heading">
@@ -57,11 +58,14 @@
         <span class="summary-dot dot-lime"></span>
         <div><strong id="remainingCount">0</strong><span>to go</span></div>
       </div>
-      <div class="summary-item summary-item-xerox">
+      <div class="summary-item summary-item-xerox clickable-summary" id="xeroxSummaryPill" role="button" tabindex="0" title="Click to open Master Xerox Hub">
         <span class="summary-dot dot-yellow"></span>
-        <div><strong id="xeroxDoneCount">0</strong><span>xerox / prints done</span></div>
+        <div>
+          <strong id="xeroxDoneCount">0 / 0</strong>
+          <span id="xeroxDoneSubtext">xerox prints done (click to view)</span>
+        </div>
       </div>
-      <div class="summary-note">Click any cell to open its full itemized checklist &amp; deadlines.</div>
+      <div class="summary-note">Xerox column organizes all practicals, assignments, PBL &amp; reports section-wise.</div>
     </section>
 
     <section class="tracker-panel" aria-labelledby="trackerTitle">
@@ -95,7 +99,7 @@
               <th scope="col">Report</th>
               <th scope="col">PBL</th>
               <th scope="col">Practical</th>
-              <th scope="col" class="xerox-header">Xerox <span class="header-note">print copies</span></th>
+              <th scope="col" class="xerox-header">Xerox <span class="header-note">all copies</span></th>
             </tr>
           </thead>
           <tbody id="taskRows"></tbody>
@@ -103,7 +107,7 @@
       </div>
       <div class="table-footnote">
         <span class="footnote-mark">i</span> 
-        <span><strong>Tip:</strong> Click any active cell to open its checklist and toggle individual tasks. Click the checkmark <span class="footnote-icon">✓</span> inside the cell to mark all items done or clear them instantly.</span>
+        <span><strong>Tip:</strong> Click any cell to open its itemized checklist. For <strong>Xerox</strong>, open any subject cell or the <strong>Master Xerox Hub</strong> to see everything section-wise with what is done and what is left to print!</span>
       </div>
     </section>
 
@@ -145,10 +149,19 @@
           </div>
         </div>
 
-        <!-- Itemized checklist -->
+        <!-- Xerox Specific Filter Tabs (What is Done vs What is Left to Xerox) -->
+        <div class="modal-xerox-filters" id="modalXeroxFilters" style="display: none;">
+          <div class="xerox-filter-tabs">
+            <button type="button" class="xerox-tab-btn active" data-xerox-filter="all">All Prints (<span id="xeroxFilterAllCount">0</span>)</button>
+            <button type="button" class="xerox-tab-btn tab-pending" data-xerox-filter="pending">⏳ Left to Xerox (<span id="xeroxFilterPendingCount">0</span>)</button>
+            <button type="button" class="xerox-tab-btn tab-done" data-xerox-filter="done">✓ Printed (<span id="xeroxFilterDoneCount">0</span>)</button>
+          </div>
+        </div>
+
+        <!-- Itemized checklist container -->
         <div class="modal-checklist-container">
           <div class="checklist-header">
-            <h4>Checklist Items</h4>
+            <h4 id="checklistTitle">Checklist Items</h4>
             <div class="checklist-quick-actions">
               <button type="button" class="btn-text" id="modalCheckAllBtn">Mark All Done</button>
               <span class="btn-divider">&bull;</span>

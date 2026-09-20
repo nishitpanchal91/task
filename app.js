@@ -1,7 +1,16 @@
 /**
  * Semester Taskboard - Core Application Logic
- * Supports itemized sub-tasks, 1-click completion, modal checklists, deadlines, and JSON backup.
+ * Supports itemized sub-tasks, 1-click completion, section-wise Xerox tracking,
+ * Master Xerox Hub, deadlines, and JSON backup.
  */
+
+const categoryMeta = {
+  practical: { name: 'Practicals', icon: '🔬', order: 1 },
+  assignment: { name: 'Assignments', icon: '📄', order: 2 },
+  pbl: { name: 'PBL Activities & Phases', icon: '📁', order: 3 },
+  report: { name: 'Reports & Documentation', icon: '📊', order: 4 },
+  ppt: { name: 'PPT Presentations', icon: '📑', order: 5 }
+};
 
 const subjects = [
   {
@@ -224,25 +233,47 @@ const contentColumns = ['assignment', 'ppt', 'report', 'pbl', 'practical'];
 const storageKey = 'semester-taskboard-v2';
 const legacyKey = 'semester-taskboard-progress-v1';
 
-// Active state: set of checked task IDs (e.g. Set of "cn-prac-1", "pm-pbl-1", etc.)
+// Active state: set of checked task IDs (e.g. Set of "cn-prac-1", "xerox-cn-prac-1", etc.)
 let checkedTaskIds = loadCheckedTasks();
 let currentFilter = 'all'; // 'all', 'pending', 'complete'
+let xeroxModalFilter = 'all'; // 'all', 'pending', 'done'
 
 /**
- * Generate Xerox print items for a subject
+ * Generate Xerox print items for a subject across all deliverable types
  */
 function getXeroxItems(subject) {
   const items = [];
-  ['assignment', 'ppt', 'report', 'pbl'].forEach((col) => {
+  const order = ['practical', 'assignment', 'pbl', 'report', 'ppt'];
+  order.forEach((col) => {
     (subject.deliverables[col] || []).forEach((task) => {
       items.push({
         id: `xerox-${task.id}`,
+        originalTaskId: task.id,
+        category: col,
+        subjectCode: subject.code,
+        subjectName: subject.name,
+        sectionName: categoryMeta[col].name,
+        sectionIcon: categoryMeta[col].icon,
+        sectionOrder: categoryMeta[col].order,
         title: `Print: ${task.title}`,
-        shortDesc: `Photocopy / print copy of ${subject.code} ${task.title}`
+        taskTitle: task.title,
+        shortDesc: task.shortDesc || `Photocopy / print copy of ${task.title}`,
+        badge: task.badge || ''
       });
     });
   });
   return items;
+}
+
+/**
+ * Get all Xerox items across the entire semester
+ */
+function getAllSemesterXeroxItems() {
+  const allItems = [];
+  subjects.forEach((subject) => {
+    allItems.push(...getXeroxItems(subject));
+  });
+  return allItems;
 }
 
 /**
@@ -271,7 +302,6 @@ function loadCheckedTasks() {
     if (savedLegacy) {
       const legacyObj = JSON.parse(savedLegacy);
       const migrated = new Set();
-      // Legacy was formatted as `${subjectIndex}-${column}`: count
       subjects.forEach((subject, sIdx) => {
         contentColumns.forEach((col) => {
           const count = legacyObj[`${sIdx}-${col}`];
@@ -523,6 +553,7 @@ function updateSummary() {
   });
 
   const percent = totalItems ? Math.round((completedItems / totalItems) * 100) : 0;
+  const remainingXerox = Math.max(0, totalXerox - completedXerox);
 
   const percentEl = document.querySelector('#overallPercent');
   const barEl = document.querySelector('#overallBar');
@@ -531,6 +562,7 @@ function updateSummary() {
   const doneCountEl = document.querySelector('#doneCount');
   const remainingCountEl = document.querySelector('#remainingCount');
   const xeroxDoneCountEl = document.querySelector('#xeroxDoneCount');
+  const xeroxDoneSubtextEl = document.querySelector('#xeroxDoneSubtext');
   const lastUpdatedEl = document.querySelector('#lastUpdated');
 
   if (percentEl) percentEl.textContent = `${percent}%`;
@@ -540,16 +572,21 @@ function updateSummary() {
   if (doneCountEl) doneCountEl.textContent = completedItems;
   if (remainingCountEl) remainingCountEl.textContent = Math.max(0, totalItems - completedItems);
   if (xeroxDoneCountEl) xeroxDoneCountEl.textContent = `${completedXerox} / ${totalXerox}`;
+  if (xeroxDoneSubtextEl) {
+    xeroxDoneSubtextEl.textContent = remainingXerox > 0 
+      ? `prints done (${remainingXerox} left to print)`
+      : `all ${totalXerox} prints completed!`;
+  }
 
   if (lastUpdatedEl) {
     lastUpdatedEl.textContent = completedItems > 0 
-      ? `Progress saved (${completedItems} done)` 
+      ? `Progress saved (${completedItems} done, ${completedXerox} printed)` 
       : 'Ready to begin';
   }
 }
 
 // ============================================================================
-// TASK CHECKLIST MODAL LOGIC
+// TASK CHECKLIST & XEROX MODAL LOGIC
 // ============================================================================
 
 let currentModalContext = {
@@ -558,11 +595,20 @@ let currentModalContext = {
 };
 
 function openTaskModal(subjectIndex, column) {
-  const subject = subjects[subjectIndex];
-  const items = getItems(subject, column);
+  let subject = null;
+  let items = [];
+
+  if (column === 'all-xerox') {
+    items = getAllSemesterXeroxItems();
+  } else {
+    subject = subjects[subjectIndex];
+    items = getItems(subject, column);
+  }
+
   if (!items.length) return;
 
   currentModalContext = { subjectIndex, column };
+  xeroxModalFilter = 'all'; // reset to 'all' when opened
 
   const modal = document.querySelector('#taskModal');
   const codeEl = document.querySelector('#modalSubjectCode');
@@ -571,16 +617,40 @@ function openTaskModal(subjectIndex, column) {
   const guidelinesEl = document.querySelector('#modalGuidelines');
   const guidelinesBadge = document.querySelector('#modalGuidelinesBadge');
   const guidelinesText = document.querySelector('#modalGuidelinesText');
+  const xeroxFiltersEl = document.querySelector('#modalXeroxFilters');
+  const checklistTitle = document.querySelector('#checklistTitle');
 
-  codeEl.textContent = subject.code;
-  catEl.textContent = column === 'xerox' ? 'Xerox / Prints' : column.toUpperCase();
-  nameEl.textContent = subject.name;
+  if (column === 'all-xerox') {
+    codeEl.textContent = 'ALL';
+    catEl.textContent = 'MASTER XEROX & PRINT HUB';
+    nameEl.textContent = 'Semester-Wide Photocopy & Print Tracker';
+    checklistTitle.textContent = 'Photocopy List (Organized by Subject & Section)';
+    xeroxFiltersEl.style.display = 'block';
+  } else if (column === 'xerox') {
+    codeEl.textContent = subject.code;
+    catEl.textContent = 'XEROX / PHOTOCOPY CHECKLIST';
+    nameEl.textContent = `${subject.name} — All Physical Print Deliverables`;
+    checklistTitle.textContent = 'Photocopy List (Organized Section-Wise)';
+    xeroxFiltersEl.style.display = 'block';
+  } else {
+    codeEl.textContent = subject.code;
+    catEl.textContent = column.toUpperCase();
+    nameEl.textContent = subject.name;
+    checklistTitle.textContent = 'Checklist Items';
+    xeroxFiltersEl.style.display = 'none';
+  }
 
-  // Guidelines Banner for special subjects/deliverables
+  // Guidelines Banner
   let guidelineMessage = '';
   let guidelineBadgeText = 'Guideline';
 
-  if (subject.code === 'CN' && column === 'pbl') {
+  if (column === 'all-xerox') {
+    guidelineBadgeText = 'Print Shop Guide';
+    guidelineMessage = 'All practicals, assignments, PBL activities, reports, and PPTs that require physical printouts for college submission. Filter by "Left to Xerox" to see exactly what you still need to print at the Xerox shop.';
+  } else if (column === 'xerox') {
+    guidelineBadgeText = 'Xerox Requirements';
+    guidelineMessage = `Keep one printed photocopy of every practical, assignment, report, and PBL phase for ${subject.name} for submission with your lab and coursework files.`;
+  } else if (subject.code === 'CN' && column === 'pbl') {
     guidelineBadgeText = 'PBL Instructions';
     guidelineMessage = 'Select 1 topic from Activity 1 (Micro Project), Activity 2 (Smart City/Healthcare Design), Activity 3 (5G/Cybersecurity Research), or Activity 4 (Case Study). Obtain topic approval, then submit a printed report with your Practical File to Lab Faculty.';
   } else if (subject.code === 'PM' && column === 'pbl') {
@@ -599,6 +669,11 @@ function openTaskModal(subjectIndex, column) {
     guidelinesEl.style.display = 'none';
   }
 
+  // Set active tab on xerox filter buttons
+  document.querySelectorAll('.xerox-tab-btn').forEach((b) => {
+    b.classList.toggle('active', b.dataset.xeroxFilter === 'all');
+  });
+
   renderModalChecklist();
 
   modal.classList.add('is-open');
@@ -614,10 +689,17 @@ function closeTaskModal() {
   renderGrid();
 }
 
+function getModalItems() {
+  const { subjectIndex, column } = currentModalContext;
+  if (column === 'all-xerox') {
+    return getAllSemesterXeroxItems();
+  }
+  return getItems(subjects[subjectIndex], column);
+}
+
 function renderModalChecklist() {
   const { subjectIndex, column } = currentModalContext;
-  const subject = subjects[subjectIndex];
-  const items = getItems(subject, column);
+  const items = getModalItems();
   const checklistContainer = document.querySelector('#modalChecklist');
   const countEl = document.querySelector('#modalProgressCount');
   const percentEl = document.querySelector('#modalProgressPercent');
@@ -625,13 +707,40 @@ function renderModalChecklist() {
 
   const total = items.length;
   const completed = items.filter((item) => checkedTaskIds.has(item.id)).length;
+  const pending = total - completed;
   const percent = total ? Math.round((completed / total) * 100) : 0;
 
-  countEl.textContent = `${completed} of ${total} completed`;
+  countEl.textContent = `${completed} of ${total} completed (${pending} remaining)`;
   percentEl.textContent = `${percent}%`;
   fillEl.style.width = `${percent}%`;
 
-  checklistContainer.innerHTML = items.map((item, idx) => {
+  // Update Xerox filter badge counts
+  if (column === 'xerox' || column === 'all-xerox') {
+    const allCountEl = document.querySelector('#xeroxFilterAllCount');
+    const pendingCountEl = document.querySelector('#xeroxFilterPendingCount');
+    const doneCountEl = document.querySelector('#xeroxFilterDoneCount');
+    if (allCountEl) allCountEl.textContent = total;
+    if (pendingCountEl) pendingCountEl.textContent = pending;
+    if (doneCountEl) doneCountEl.textContent = completed;
+  }
+
+  // Check if this is a section-wise Xerox view (subject xerox or master xerox)
+  if (column === 'xerox') {
+    renderSubjectXeroxChecklist(items, checklistContainer);
+  } else if (column === 'all-xerox') {
+    renderMasterXeroxChecklist(items, checklistContainer);
+  } else {
+    renderStandardChecklist(items, checklistContainer);
+  }
+
+  attachModalCheckboxListeners(checklistContainer);
+}
+
+/**
+ * Standard checklist rendering for regular categories (practicals, assignments, etc.)
+ */
+function renderStandardChecklist(items, container) {
+  container.innerHTML = items.map((item) => {
     const isChecked = checkedTaskIds.has(item.id);
     const badgeHtml = item.badge ? `<span class="item-badge">${item.badge}</span>` : '';
     const descHtml = item.shortDesc ? `<p class="item-desc">${item.shortDesc}</p>` : '';
@@ -652,9 +761,182 @@ function renderModalChecklist() {
       </label>
     `;
   }).join('');
+}
 
-  // Attach change listeners to each checkbox
-  checklistContainer.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+/**
+ * Section-wise Xerox checklist rendering for a single subject
+ */
+function renderSubjectXeroxChecklist(items, container) {
+  // Group by category (section)
+  const sections = ['practical', 'assignment', 'pbl', 'report', 'ppt'];
+  let html = '';
+
+  sections.forEach((catKey) => {
+    const sectionItems = items.filter((it) => it.category === catKey);
+    if (!sectionItems.length) return;
+
+    const sTotal = sectionItems.length;
+    const sDone = sectionItems.filter((it) => checkedTaskIds.has(it.id)).length;
+    const sPending = sTotal - sDone;
+
+    // Filter items based on active xeroxModalFilter
+    const filteredItems = sectionItems.filter((it) => {
+      const isDone = checkedTaskIds.has(it.id);
+      if (xeroxModalFilter === 'pending') return !isDone;
+      if (xeroxModalFilter === 'done') return isDone;
+      return true;
+    });
+
+    if (filteredItems.length === 0 && xeroxModalFilter !== 'all') {
+      return; // Skip empty section when filtered
+    }
+
+    const meta = categoryMeta[catKey];
+    const isSectionAllDone = sDone === sTotal;
+
+    html += `
+      <div class="xerox-section-block">
+        <div class="xerox-section-header">
+          <div class="section-title-wrap">
+            <span class="section-icon">${meta.icon}</span>
+            <span class="section-title">${meta.name}</span>
+            <span class="section-count-badge ${isSectionAllDone ? 'is-all-done' : 'has-pending'}">
+              ${sDone} / ${sTotal} printed ${sPending > 0 ? `(${sPending} left)` : '✓'}
+            </span>
+          </div>
+          <button type="button" class="btn-section-toggle" data-section-cat="${catKey}">
+            ${isSectionAllDone ? 'Reset section' : 'Print all in section'}
+          </button>
+        </div>
+        <div class="xerox-section-items">
+          ${filteredItems.length > 0 ? filteredItems.map((item) => renderXeroxItemRow(item)).join('') : `
+            <div class="empty-filter-note">No items matching "${xeroxModalFilter}" in this section.</div>
+          `}
+        </div>
+      </div>
+    `;
+  });
+
+  if (!html) {
+    html = `<div class="empty-filter-note large-note">🎉 No items remaining in "${xeroxModalFilter}" filter!</div>`;
+  }
+
+  container.innerHTML = html;
+  attachSectionToggleListeners();
+}
+
+/**
+ * Master Xerox Hub checklist rendering across ALL subjects
+ */
+function renderMasterXeroxChecklist(items, container) {
+  let html = '';
+
+  subjects.forEach((subject) => {
+    const subjectItems = items.filter((it) => it.subjectCode === subject.code);
+    if (!subjectItems.length) return;
+
+    // Group subject items by section
+    const sections = ['practical', 'assignment', 'pbl', 'report', 'ppt'];
+    let subjectSectionsHtml = '';
+
+    sections.forEach((catKey) => {
+      const sectionItems = subjectItems.filter((it) => it.category === catKey);
+      if (!sectionItems.length) return;
+
+      const sTotal = sectionItems.length;
+      const sDone = sectionItems.filter((it) => checkedTaskIds.has(it.id)).length;
+      const sPending = sTotal - sDone;
+
+      const filteredItems = sectionItems.filter((it) => {
+        const isDone = checkedTaskIds.has(it.id);
+        if (xeroxModalFilter === 'pending') return !isDone;
+        if (xeroxModalFilter === 'done') return isDone;
+        return true;
+      });
+
+      if (filteredItems.length === 0 && xeroxModalFilter !== 'all') return;
+
+      const meta = categoryMeta[catKey];
+      const isSectionAllDone = sDone === sTotal;
+
+      subjectSectionsHtml += `
+        <div class="master-section-subblock">
+          <div class="master-section-subhead">
+            <span>${meta.icon} ${meta.name}</span>
+            <span class="subhead-badge ${isSectionAllDone ? 'done-badge' : 'pending-badge'}">
+              ${sDone} / ${sTotal} printed ${sPending > 0 ? `(${sPending} left to xerox)` : '✓'}
+            </span>
+          </div>
+          <div class="master-subitems">
+            ${filteredItems.map((item) => renderXeroxItemRow(item)).join('')}
+          </div>
+        </div>
+      `;
+    });
+
+    if (subjectSectionsHtml) {
+      const subTotal = subjectItems.length;
+      const subDone = subjectItems.filter((it) => checkedTaskIds.has(it.id)).length;
+      const subPending = subTotal - subDone;
+
+      html += `
+        <div class="master-subject-card">
+          <div class="master-subject-header">
+            <div class="master-subject-title">
+              <span class="subject-tag">${subject.code}</span>
+              <strong>${subject.name}</strong>
+            </div>
+            <span class="subject-overall-xerox-badge">
+              ${subDone} / ${subTotal} printed ${subPending > 0 ? `(${subPending} left)` : '✓ All Done'}
+            </span>
+          </div>
+          <div class="master-subject-body">
+            ${subjectSectionsHtml}
+          </div>
+        </div>
+      `;
+    }
+  });
+
+  if (!html) {
+    html = `<div class="empty-filter-note large-note">🎉 No prints found for "${xeroxModalFilter}"!</div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+/**
+ * Helper to render an individual Xerox item row with dual badges
+ */
+function renderXeroxItemRow(item) {
+  const isPrinted = checkedTaskIds.has(item.id);
+  const isOriginalDone = checkedTaskIds.has(item.originalTaskId);
+
+  return `
+    <label class="checklist-item xerox-item-row ${isPrinted ? 'is-checked is-printed' : 'is-pending-print'}" for="check-${item.id}">
+      <input type="checkbox" id="check-${item.id}" data-id="${item.id}" ${isPrinted ? 'checked' : ''}>
+      <div class="custom-checkbox" aria-hidden="true"></div>
+      <div class="item-info">
+        <div class="item-header-line">
+          <span class="item-title">${item.title}</span>
+          <span class="xerox-status-pill ${isPrinted ? 'pill-printed' : 'pill-left'}">
+            ${isPrinted ? '✓ Printed / Xerox Done' : '⏳ Left to Xerox'}
+          </span>
+          <span class="original-work-pill ${isOriginalDone ? 'work-ready' : 'work-pending'}">
+            ${isOriginalDone ? '📝 Original Ready' : '⏳ Original in Progress'}
+          </span>
+        </div>
+        <p class="item-desc">${item.shortDesc}</p>
+      </div>
+    </label>
+  `;
+}
+
+/**
+ * Attach listeners to checkboxes in modal
+ */
+function attachModalCheckboxListeners(container) {
+  container.querySelectorAll('input[type="checkbox"]').forEach((input) => {
     input.addEventListener('change', (e) => {
       const taskId = e.target.dataset.id;
       if (e.target.checked) {
@@ -662,6 +944,32 @@ function renderModalChecklist() {
       } else {
         checkedTaskIds.delete(taskId);
       }
+      saveProgress();
+      renderModalChecklist();
+      renderGrid();
+    });
+  });
+}
+
+/**
+ * Attach section-level toggle listeners (e.g. Print all in Practicals)
+ */
+function attachSectionToggleListeners() {
+  document.querySelectorAll('.btn-section-toggle').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const catKey = btn.dataset.sectionCat;
+      const { subjectIndex } = currentModalContext;
+      const subject = subjects[subjectIndex];
+      const sectionItems = getXeroxItems(subject).filter((it) => it.category === catKey);
+
+      const allSectionDone = sectionItems.every((it) => checkedTaskIds.has(it.id));
+      if (allSectionDone) {
+        sectionItems.forEach((it) => checkedTaskIds.delete(it.id));
+      } else {
+        sectionItems.forEach((it) => checkedTaskIds.add(it.id));
+      }
+
       saveProgress();
       renderModalChecklist();
       renderGrid();
@@ -692,8 +1000,7 @@ document.addEventListener('keydown', (e) => {
 
 // Modal Mark All Done
 document.querySelector('#modalCheckAllBtn').addEventListener('click', () => {
-  const { subjectIndex, column } = currentModalContext;
-  const items = getItems(subjects[subjectIndex], column);
+  const items = getModalItems();
   items.forEach((item) => checkedTaskIds.add(item.id));
   saveProgress();
   renderModalChecklist();
@@ -702,12 +1009,37 @@ document.querySelector('#modalCheckAllBtn').addEventListener('click', () => {
 
 // Modal Clear All
 document.querySelector('#modalClearAllBtn').addEventListener('click', () => {
-  const { subjectIndex, column } = currentModalContext;
-  const items = getItems(subjects[subjectIndex], column);
+  const items = getModalItems();
   items.forEach((item) => checkedTaskIds.delete(item.id));
   saveProgress();
   renderModalChecklist();
   renderGrid();
+});
+
+// Xerox Filter Tabs (All / Left to Xerox / Done)
+document.querySelectorAll('.xerox-tab-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.xerox-tab-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    xeroxModalFilter = btn.dataset.xeroxFilter;
+    renderModalChecklist();
+  });
+});
+
+// Master Xerox Hub Button & Summary Pill Triggers
+document.querySelector('#xeroxHubBtn').addEventListener('click', () => {
+  openTaskModal(-1, 'all-xerox');
+});
+
+document.querySelector('#xeroxSummaryPill').addEventListener('click', () => {
+  openTaskModal(-1, 'all-xerox');
+});
+
+document.querySelector('#xeroxSummaryPill').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    openTaskModal(-1, 'all-xerox');
+  }
 });
 
 // ============================================================================
