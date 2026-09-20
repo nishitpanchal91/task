@@ -4,16 +4,17 @@
  * Master Xerox Hub, deadlines, and JSON backup.
  */
 
-// Section configuration matching user order: Assignment -> Practical -> PBL -> PPT -> Report
+// Section configuration: PBL -> PPT -> Reports -> Practicals (Assignments excluded from Xerox)
 const categoryMeta = {
-  assignment: { name: 'Assignments', icon: '📄', short: 'Asg', order: 1 },
-  practical: { name: 'Practicals', icon: '🔬', short: 'Prac', order: 2 },
-  pbl: { name: 'PBL Activities & Phases', icon: '📁', short: 'PBL', order: 3 },
-  ppt: { name: 'PPT Presentations', icon: '📑', short: 'PPT', order: 4 },
-  report: { name: 'Reports & Documentation', icon: '📊', short: 'Rep', order: 5 }
+  pbl: { name: 'PBL Activities & Phases', icon: '📁', short: 'PBL', order: 1 },
+  ppt: { name: 'PPT Presentations', icon: '📑', short: 'PPT', order: 2 },
+  report: { name: 'Reports & Documentation', icon: '📊', short: 'Rep', order: 3 },
+  practical: { name: 'Practicals', icon: '🔬', short: 'Prac', order: 4 },
+  assignment: { name: 'Assignments', icon: '📄', short: 'Asg', order: 5 }
 };
 
-const xeroxSectionOrder = ['assignment', 'practical', 'pbl', 'ppt', 'report'];
+// Assignments are explicitly excluded from Xerox
+const xeroxSectionOrder = ['pbl', 'ppt', 'report', 'practical'];
 const contentColumns = ['assignment', 'ppt', 'report', 'pbl', 'practical'];
 const storageKey = 'semester-taskboard-v2';
 const legacyKey = 'semester-taskboard-progress-v1';
@@ -667,10 +668,10 @@ function openTaskModal(subjectIndex, column) {
 
   if (column === 'all-xerox') {
     guidelineBadgeText = 'Print Shop Guide';
-    guidelineMessage = 'Take out photocopies of all deliverables (Assignments, Practicals, PBL, PPT, Reports). Use "⏳ Left to Xerox" to view your exact shopping list at the print shop.';
+    guidelineMessage = 'Photocopies of all required deliverables (PBL, PPT, Reports, Practicals). Note: Assignments are not included in Xerox.';
   } else if (column === 'xerox') {
     guidelineBadgeText = 'Xerox Order';
-    guidelineMessage = `Sections are ordered: Assignments → Practicals → PBL → PPT → Reports. Mark each item once photocopied.`;
+    guidelineMessage = `Sections are ordered: PBL → PPT → Reports → Practicals (Assignments excluded). Mark each item once photocopied.`;
   } else if (subject && subject.code === 'CN' && column === 'pbl') {
     guidelineBadgeText = 'PBL Instructions';
     guidelineMessage = 'Select 1 topic from Activity 1 (Micro Project), Activity 2 (Smart City/Healthcare Design), Activity 3 (5G/Cybersecurity Research), or Activity 4 (Case Study). Submit printed report with your Practical File.';
